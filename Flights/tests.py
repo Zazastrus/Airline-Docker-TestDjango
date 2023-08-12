@@ -1,0 +1,83 @@
+from django.test import TestCase, Client
+from .models import Flight, Airport, Passenger
+from django.db.models import Max
+
+# Create your tests here.
+class FlightTestCase(TestCase):
+
+    def setUp(self):
+
+        a1 = Airport.objects.create(code='AAA', city='City A')
+        b1 = Airport.objects.create(code='BBB', city='City B')
+
+        Flight.objects.create(origin=a1, destination=b1, duration=100)
+        Flight.objects.create(origin=a1, destination=a1, duration=200)
+        Flight.objects.create(origin=a1, destination=b1, duration=-100)
+
+    def test_departures_count(self):
+        a = Airport.objects.get(code='AAA')
+        self.assertEqual(a.departures.count(), 3)
+
+    def test_arrivals_count(self):
+        a = Airport.objects.get(code='AAA')
+        self.assertEqual(a.arrivals.count(), 1)
+
+    def test_valid_flight(self):
+        a = Airport.objects.get(code='AAA')
+        b = Airport.objects.get(code='BBB')
+        f = Flight.objects.get(origin=a, destination=b, duration=100)
+        self.assertTrue(f.is_valid_flight())
+
+    def test_invalid_flight_destination(self):
+        a = Airport.objects.get(code='AAA')
+        f = Flight.objects.get(origin=a, destination=a)
+        self.assertFalse(f.is_valid_flight())
+
+    def test_invalid_flight_duration(self):
+        a = Airport.objects.get(code='AAA')
+        b = Airport.objects.get(code='BBB')
+        f = Flight.objects.get(origin=a, destination=b, duration=-100)
+        self.assertFalse(f.is_valid_flight())
+
+    # Client()
+    def test_index(self):
+        # Client() simulates a user using the wep app
+        c = Client()
+        response = c.get("/flights/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["flights"].count(), 3)
+
+    def test_valid_flight_page(self):
+        a = Airport.objects.get(code='AAA')
+        f = Flight.objects.get(origin=a, destination=a)
+
+        c = Client()
+        response = c.get(f"/flights/{f.id}")
+        self.assertEqual(response.status_code, 200)
+
+    def test_invalid_test_page(self):
+        max_id = Flight.objects.all().aggregate(Max("id"))["id__max"]
+
+        c = Client()
+        response = c.get(f"/flights/{max_id + 1}")
+        self.assertEqual(response.status_code, 404)
+
+    def test_flight_page_passenger(self):
+        f = Flight.objects.get(pk=1)
+        p = Passenger.objects.create(first="John", last="Doe")
+        f.passengers.add(p)
+
+        c = Client()
+        response = c.get(f"/flights/{f.id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["passengers"].count(), 1)
+
+    def test_flight_page_non_passenger(self):
+        f = Flight.objects.get(pk=1)
+        p = Passenger.objects.create(first="John", last="Doe")
+        # Now, we don't add the passenger to the flight
+
+        c = Client()
+        response = c.get(f"/flights/{f.id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["non_passengers"].count(), 1)
