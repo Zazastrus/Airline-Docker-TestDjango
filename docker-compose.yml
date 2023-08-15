@@ -7,6 +7,6 @@ services:
   web:
     build: .
     volumes:
-      - .:C:\Users\alsch\Desktop\Airline
+      - .:/usr/src/app
     ports:
       - "8000:8000"
