@@ -5,8 +5,8 @@ from django.urls import reverse
 
 # Create your views here.
 
-def index(request):
-    return render(request, "flights/index.html", {"flights": Flight.objects.all()})
+def list(request):
+    return render(request, "flights/list.html", {"flights": Flight.objects.all()})
 
 def flight(request, flight_id):
     try:
